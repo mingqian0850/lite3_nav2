@@ -47,7 +47,7 @@ controller_server:
       vy_min: -1.0
       wz_max: 1.5
       iteration_count: 1
-      prune_distance: 2.5 # last_vlaue: 5.0
+      prune_distance: 5.0 # last_vlaue: 5.0
       transform_tolerance: 1.0
       temperature: 0.5 # last_value: 0.3 
       gamma: 0.015
