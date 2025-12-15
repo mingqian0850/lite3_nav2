@@ -37,6 +37,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'follow_path_goal_gen = lite3_nav2_bringup.follow_path_goal_gen:main',
         ],
     },
 )
