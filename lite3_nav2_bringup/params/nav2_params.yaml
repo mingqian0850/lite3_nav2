@@ -75,7 +75,7 @@ controller_server:
           "PathAlignCritic",
           "PathFollowCritic",
           "PathAngleCritic",
-          # "PreferForwardCritic",
+          "PreferForwardCritic",
         ]
       ConstraintCritic:
         enabled: true
