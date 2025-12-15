@@ -37,8 +37,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'follow_path_goal_gen = lite3_nav2_bringup.follow_path_goal_gen:main',
-            'follow_path_sequence_executor = lite3_nav2_bringup.follow_path_sequence_executor:main',
+            'send_follow_path = lite3_nav2_bringup.send_follow_path:main',
+            'visualize_waypoints = lite3_nav2_bringup.visualize_waypoints:main',
         ],
     },
 )
