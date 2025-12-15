@@ -139,7 +139,7 @@ local_costmap:
     ros__parameters:
       update_frequency: 30.0
       publish_frequency: 30.0
-      global_frame: odom
+      global_frame: map
       robot_base_frame: base_link
       rolling_window: true
       width: 20
