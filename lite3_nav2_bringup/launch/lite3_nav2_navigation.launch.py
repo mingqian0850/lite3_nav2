@@ -8,7 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     """
     Minimal Nav2 bringup for Lite3:
-    - 仅启动 controller_server + local_costmap + lifecycle_manager
+    - 启动 controller_server + bt_navigator + behavior_server + lifecycle_manager
     - 假设上层程序自己提供路径（FollowPath），外部 SLAM 提供 TF
     """
 
@@ -17,6 +17,7 @@ def generate_launch_description():
     use_sim_time = LaunchConfiguration("use_sim_time")
     params_file = LaunchConfiguration("params_file")
     autostart = LaunchConfiguration("autostart")
+    default_bt_xml = LaunchConfiguration("default_bt_xml")
 
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time",
@@ -38,10 +39,42 @@ def generate_launch_description():
         description="Automatically startup the Nav2 stack.",
     )
 
+    declare_default_bt_xml = DeclareLaunchArgument(
+        "default_bt_xml",
+        default_value=PathJoinSubstitution(
+            [bringup_dir, "params", "follow_path_wait_from_topic.xml"]
+        ),
+        description="Behavior tree XML to load for bt_navigator.",
+    )
+
     controller_server = Node(
         package="nav2_controller",
         executable="controller_server",
         name="controller_server",
+        output="screen",
+        parameters=[params_file, {"use_sim_time": use_sim_time}],
+    )
+
+    bt_navigator = Node(
+        package="nav2_bt_navigator",
+        executable="bt_navigator",
+        name="bt_navigator",
+        output="screen",
+        parameters=[
+            params_file,
+            {
+                "use_sim_time": use_sim_time,
+                "default_bt_xml_filename": default_bt_xml,
+                "default_nav_to_pose_bt_xml": default_bt_xml,
+                "default_nav_through_poses_bt_xml": default_bt_xml,
+            },
+        ],
+    )
+
+    behavior_server = Node(
+        package="nav2_behaviors",
+        executable="behavior_server",
+        name="behavior_server",
         output="screen",
         parameters=[params_file, {"use_sim_time": use_sim_time}],
     )
@@ -54,7 +87,7 @@ def generate_launch_description():
         parameters=[
             {"use_sim_time": use_sim_time},
             {"autostart": autostart},
-                {"node_names": ["controller_server"]},
+            {"node_names": ["controller_server", "bt_navigator", "behavior_server"]},
         ],
     )
 
@@ -63,7 +96,10 @@ def generate_launch_description():
             declare_use_sim_time,
             declare_params_file,
             declare_autostart,
+            declare_default_bt_xml,
             controller_server,
+            bt_navigator,
+            behavior_server,
             lifecycle_manager,
         ]
     )

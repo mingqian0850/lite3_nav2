@@ -1,0 +1,22 @@
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+
+    <Sequence name="LoadAndFollowPath">
+      <!-- Keep trying to fetch the path until available -->
+      <RetryUntilSuccessful num_attempts="-1">
+        <!-- Subscribe to the continuous path published by visualize_waypoints -->
+        <PathFromTopic topic="/waypoints/path" path="{path}" />
+      </RetryUntilSuccessful>
+
+      <RecoveryNode number_of_retries="100">
+        <FollowPath
+          path="{path}"
+          controller_id="FollowPath" />
+          
+        <Wait wait_duration="1.0" />
+      </RecoveryNode>
+    </Sequence>
+
+  </BehaviorTree>
+</root>
+

@@ -119,6 +119,7 @@ class FollowPathClient(Node):
         rclpy.spin_until_future_complete(self, result_future)
         return result_future.result()
 
+
 def build_path(sampled_pts, frame_id: str, stamp):
     path = Path()
     path.header.frame_id = frame_id
@@ -189,4 +190,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

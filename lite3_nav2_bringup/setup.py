@@ -23,6 +23,10 @@ setup(
             os.path.join('share', package_name, 'params'),
             glob('params/*.yaml'),
         ),
+        (
+            os.path.join('share', package_name, 'params'),
+            glob('params/*.xml'),
+        ),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -37,8 +41,10 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'send_follow_path = lite3_nav2_bringup.send_follow_path:main',
+            # 'send_follow_path = lite3_nav2_bringup.send_follow_path:main',
             'visualize_waypoints = lite3_nav2_bringup.visualize_waypoints:main',
+            # 'send_path_topic = lite3_nav2_bringup.send_path_topic:main',
+            # 'send_path_and_nav = lite3_nav2_bringup.send_path_and_nav:main',
         ],
     },
 )
