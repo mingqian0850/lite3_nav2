@@ -1,0 +1,6 @@
+<library path="lite3_nav2_bt_nodes">
+  <class type="lite3_nav2_bt_nodes::PathFromTopic" base_class_type="BT::ActionNodeBase">
+    <description>Load nav_msgs/Path from a topic and write it to blackboard key 'path'.</description>
+  </class>
+</library>
+
