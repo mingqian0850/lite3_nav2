@@ -195,7 +195,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Continuously publish waypoints markers/path for RViz2.")
     parser.add_argument("--waypoints", help="Path to waypoints.yaml (default: package params/waypoints.yaml)")
-    parser.add_argument("--frame", default="odom", help="Frame id for markers and path")
+    parser.add_argument("--frame", default="map", help="Frame id for markers and path")
     parser.add_argument("--topic", default="/waypoints/markers", help="Marker topic")
     parser.add_argument("--path-topic", default="/waypoints/path", help="Path topic")
     parser.add_argument("--rate", type=float, default=1.0, help="Publish rate in Hz")
