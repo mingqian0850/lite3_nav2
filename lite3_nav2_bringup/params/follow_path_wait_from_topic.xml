@@ -13,7 +13,7 @@
           path="{path}"
           controller_id="FollowPath" />
           
-        <Wait wait_duration="1.0" />
+        <Wait wait_duration="0.1" />
       </RecoveryNode>
     </Sequence>
 
