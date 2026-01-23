@@ -1,8 +1,5 @@
 import math
-import os
-import yaml
 import rclpy
-from ament_index_python.packages import get_package_share_directory
 from rclpy.node import Node
 from rclpy.qos import (
     QoSDurabilityPolicy,
@@ -13,44 +10,6 @@ from rclpy.qos import (
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Path
 from visualization_msgs.msg import Marker, MarkerArray
-
-
-def load_waypoints(file_path: str):
-    """
-    Load waypoints from YAML.
-    Formats:
-    - list of dicts: [{x: 0.0, y: 0.0}, ...]
-    - dict with key 'waypoints' holding such a list (and optional interpolation_step/step)
-    - list of [x, y]
-    """
-    with open(file_path, "r") as f:
-        data = yaml.safe_load(f)
-
-    step = None
-    if isinstance(data, dict):
-        step = data.get("interpolation_step") or data.get("step")
-        points_raw = data.get("waypoints", data)
-    else:
-        points_raw = data
-
-    if not isinstance(points_raw, list):
-        raise ValueError("Expected a list of waypoints or a dict containing key 'waypoints'.")
-
-    points = []
-    for idx, p in enumerate(points_raw):
-        if isinstance(p, dict):
-            x, y = p.get("x"), p.get("y")
-        elif isinstance(p, (list, tuple)) and len(p) >= 2:
-            x, y = p[0], p[1]
-        else:
-            raise ValueError(f"Waypoint #{idx} is not a dict or list with x/y.")
-        if x is None or y is None:
-            raise ValueError(f"Waypoint #{idx} missing x or y.")
-        points.append((float(x), float(y)))
-
-    if len(points) < 1:
-        raise ValueError("No waypoints found in YAML.")
-    return points, step
 
 
 def compute_headings(points):
@@ -150,6 +109,15 @@ def build_markers(sampled_pts, frame_id: str, stamp):
     return markers
 
 
+def path_to_points(path_msg: Path):
+    points = []
+    for pose in path_msg.poses:
+        points.append((pose.pose.position.x, pose.pose.position.y))
+    if len(points) < 1:
+        raise ValueError("Received empty Path on /waypoints.")
+    return points
+
+
 class WaypointsVisualizer(Node):
     def __init__(self, args):
         super().__init__("waypoints_visualizer")
@@ -157,17 +125,14 @@ class WaypointsVisualizer(Node):
         self.topic = args.topic
         self.path_topic = args.path_topic
         self.rate = args.rate
+        self.step_m = args.step
+        self._sampled = None
+        self._received_first = False
 
-        if args.waypoints:
-            waypoints_path = args.waypoints
-        else:
-            pkg_share = get_package_share_directory("lite3_nav2_bringup")
-            waypoints_path = os.path.join(pkg_share, "params", "waypoints.yaml")
-
-        points, yaml_step = load_waypoints(waypoints_path)
-        self.step_m = args.step if args.step is not None else (yaml_step if yaml_step is not None else 0.2)
-        self.sampled = interpolate(points, self.step_m)
-        self.get_logger().info(f"Using waypoints file: {waypoints_path}")
+        self._sub = self.create_subscription(
+            Path, args.waypoints_topic, self._on_waypoints, 10
+        )
+        self.get_logger().info(f"Waiting for /waypoints Path on: {args.waypoints_topic}")
         self.get_logger().info(f"Interpolation step: {self.step_m} m")
         self.get_logger().info(f"Marker topic: {self.topic}, Path topic: {self.path_topic}")
 
@@ -182,10 +147,31 @@ class WaypointsVisualizer(Node):
 
         self.timer = self.create_timer(1.0 / self.rate, self._on_timer)
 
+    def _on_waypoints(self, msg: Path):
+        if self._received_first:
+            return
+        self._received_first = True
+        points = path_to_points(msg)
+        self._sampled = (
+            interpolate(points, self.step_m)
+            if len(points) > 1
+            else [(points[0][0], points[0][1], 0.0)]
+        )
+        if self.frame_id is None:
+            self.frame_id = msg.header.frame_id or "map"
+        self.get_logger().info(
+            f"Received /waypoints Path with {len(msg.poses)} poses; publishing markers/path."
+        )
+        if self._sub is not None:
+            self.destroy_subscription(self._sub)
+            self._sub = None
+
     def _on_timer(self):
+        if self._sampled is None:
+            return
         stamp = self.get_clock().now().to_msg()
-        markers = build_markers(self.sampled, self.frame_id, stamp)
-        path_msg = build_path(self.sampled, self.frame_id, stamp)
+        markers = build_markers(self._sampled, self.frame_id, stamp)
+        path_msg = build_path(self._sampled, self.frame_id, stamp)
         self.marker_pub.publish(markers)
         self.path_pub.publish(path_msg)
 
@@ -193,17 +179,25 @@ class WaypointsVisualizer(Node):
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Continuously publish waypoints markers/path for RViz2.")
-    parser.add_argument("--waypoints", help="Path to waypoints.yaml (default: package params/waypoints.yaml)")
-    parser.add_argument("--frame", default="odom", help="Frame id for markers and path")
+    parser = argparse.ArgumentParser(description="Publish markers/path from /waypoints (nav_msgs/Path).")
+    parser.add_argument(
+        "--waypoints-topic",
+        default="/waypoints",
+        help="Path topic to subscribe (nav_msgs/Path)",
+    )
+    parser.add_argument(
+        "--frame",
+        default=None,
+        help="Override frame id for markers and path (default: use incoming frame_id or map)",
+    )
     parser.add_argument("--topic", default="/waypoints/markers", help="Marker topic")
     parser.add_argument("--path-topic", default="/waypoints/path", help="Path topic")
     parser.add_argument("--rate", type=float, default=1.0, help="Publish rate in Hz")
     parser.add_argument(
         "--step",
         type=float,
-        default=None,
-        help="Interpolation step in meters (overrides YAML interpolation_step; default 0.2 if both absent)",
+        default=0.2,
+        help="Interpolation step in meters for received Path",
     )
     args = parser.parse_args()
 

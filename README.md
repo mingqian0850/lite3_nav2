@@ -10,7 +10,7 @@ where each pose orientation is automatically set to face the next waypoint direc
 Example:
 
 ```bash
-ros2 run lite3_nav2_bringup follow_path_goal_gen --frame odom --points "2,-2;5,-4;6,0"
+ros2 run lite3_nav2_bringup follow_path_goal_gen --frame map --points "2,-2;5,-4;6,0"
 ```
 
 ### Execute sequential /follow_path segments from YAML
@@ -21,7 +21,7 @@ automatically computes the heading between each pair, and sequentially sends
 
 ```yaml
 # example_path.yaml
-frame_id: odom
+frame_id: map
 points:
   - {x: 0.0, y: 0.0}
   - {x: 2.0, y: -2.0}
