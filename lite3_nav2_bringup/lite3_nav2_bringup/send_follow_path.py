@@ -68,7 +68,7 @@ def path_to_points(path_msg: Path):
     for pose in path_msg.poses:
         points.append((pose.pose.position.x, pose.pose.position.y))
     if len(points) < 1:
-        raise ValueError("Received empty Path on /waypoints.")
+        raise ValueError("Received empty Path.")
     return points
 
 
@@ -77,9 +77,9 @@ class FollowPathClient(Node):
         super().__init__("follow_path_client")
         self._client = ActionClient(self, FollowPath, "/follow_path")
         self._args = args
-        self._pending_path = None
         self._processing = False
-        self._received_first = False
+        self._latest_path = None
+        self._last_processed_stamp = None
 
         self._sub = self.create_subscription(
             Path, args.waypoints_topic, self._on_waypoints, 10
@@ -113,23 +113,22 @@ class FollowPathClient(Node):
         return result.status, result.result
 
     def _on_waypoints(self, msg: Path):
-        if self._received_first:
-            return
-        self._received_first = True
-        self._pending_path = msg
-        self.get_logger().info(
-            f"Received /waypoints Path with {len(msg.poses)} poses; preparing FollowPath goal."
-        )
-        if self._sub is not None:
-            self.destroy_subscription(self._sub)
-            self._sub = None
+        self._latest_path = msg
 
     def _on_timer(self):
-        if self._pending_path is None or self._processing:
+        if self._processing:
+            return
+        if self._latest_path is None:
+            return
+        stamp = self._latest_path.header.stamp
+        stamp_key = (stamp.sec, stamp.nanosec)
+        if self._last_processed_stamp == stamp_key:
             return
         self._processing = True
-        msg = self._pending_path
-        self._pending_path = None
+        msg = self._latest_path
+        self.get_logger().info(
+            f"Processing waypoints with {len(msg.poses)} poses (stamp={stamp_key})."
+        )
 
         try:
             points = path_to_points(msg)
@@ -163,19 +162,22 @@ class FollowPathClient(Node):
                     rclpy.spin_once(self, timeout_sec=self._args.retry_wait)
                     continue
                 break
+            self._last_processed_stamp = stamp_key
         finally:
             self._processing = False
 
 
 def main():
     import argparse
+    import sys
+    from rclpy.utilities import remove_ros_args
 
     parser = argparse.ArgumentParser(
         description="Subscribe /waypoints Path and send FollowPath action goal."
     )
     parser.add_argument(
         "--waypoints-topic",
-        default="/waypoints",
+        default="/waypoints/raw",
         help="Path topic to subscribe (nav_msgs/Path)",
     )
     parser.add_argument(
@@ -194,7 +196,7 @@ def main():
     parser.add_argument("--wait", type=float, default=10.0, help="Wait time for action server (s)")
     parser.add_argument("--retries", type=int, default=0, help="Retry count on ABORTED")
     parser.add_argument("--retry-wait", type=float, default=0.5, help="Wait seconds before retry")
-    args = parser.parse_args()
+    args = parser.parse_args(remove_ros_args(sys.argv)[1:])
 
     rclpy.init()
     node = FollowPathClient(args)

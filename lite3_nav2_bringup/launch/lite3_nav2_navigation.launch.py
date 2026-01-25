@@ -21,14 +21,14 @@ def generate_launch_description():
 
     declare_use_sim_time = DeclareLaunchArgument(
         "use_sim_time",
-        default_value="false",
+        default_value="true",
         description="Use simulation (Gazebo) clock if true.",
     )
 
     declare_params_file = DeclareLaunchArgument(
         "params_file",
         default_value=PathJoinSubstitution(
-            [bringup_dir, "params", "nav2_params.yaml"]
+            [bringup_dir, "params", "nav2_params_v1.yaml"]
         ),
         description="Full path to the ROS2 parameters file to use for Nav2.",
     )
@@ -40,18 +40,23 @@ def generate_launch_description():
     )
 
     declare_waypoints_topic = DeclareLaunchArgument(
-        "waypoints_topic",
-        default_value="/waypoints",
+        "input_waypoints_topic",
+        default_value="/waypoints/raw",
         description="Input Path topic (nav_msgs/Path).",
     )
-    declare_interpolated_topic = DeclareLaunchArgument(
+    declare_interpolated_vis_topic = DeclareLaunchArgument(
+        "interpolated_waypoints_visualization_topic",
+        default_value="/waypoints/interpolated/markers",
+        description="Output marker topic for interpolated waypoints visualization.",
+    )
+    declare_interpolated_path_topic = DeclareLaunchArgument(
         "interpolated_waypoints_topic",
-        default_value="/waypoints/path",
+        default_value="/waypoints/interpolated/path",
         description="Output Path topic for interpolated waypoints.",
     )
     declare_interpolation_step = DeclareLaunchArgument(
         "interpolation_step",
-        default_value="0.05",
+        default_value="0.1",
         description="Interpolation step (meters).",
     )
     declare_send_retries = DeclareLaunchArgument(
@@ -81,7 +86,7 @@ def generate_launch_description():
         parameters=[{"use_sim_time": use_sim_time}],
         arguments=[
             "--waypoints-topic",
-            LaunchConfiguration("waypoints_topic"),
+            LaunchConfiguration("input_waypoints_topic"),
             "--step",
             LaunchConfiguration("interpolation_step"),
             "--retries",
@@ -99,9 +104,9 @@ def generate_launch_description():
         parameters=[{"use_sim_time": use_sim_time}],
         arguments=[
             "--waypoints-topic",
-            LaunchConfiguration("waypoints_topic"),
-            "--path-topic",
-            LaunchConfiguration("interpolated_waypoints_topic"),
+            LaunchConfiguration("input_waypoints_topic"),
+            "--topic",
+            LaunchConfiguration("interpolated_waypoints_visualization_topic"),
             "--step",
             LaunchConfiguration("interpolation_step"),
         ],
@@ -132,7 +137,8 @@ def generate_launch_description():
             declare_params_file,
             declare_autostart,
             declare_waypoints_topic,
-            declare_interpolated_topic,
+            declare_interpolated_vis_topic,
+            declare_interpolated_path_topic,
             declare_interpolation_step,
             declare_send_retries,
             declare_send_retry_wait,

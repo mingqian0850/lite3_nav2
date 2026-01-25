@@ -47,25 +47,6 @@ def yaw_to_quaternion(yaw: float):
     return (0.0, 0.0, math.sin(half), math.cos(half))
 
 
-def build_path(sampled_pts, frame_id: str, stamp):
-    path = Path()
-    path.header.frame_id = frame_id
-    path.header.stamp = stamp
-    for x, y, yaw in sampled_pts:
-        pose = PoseStamped()
-        pose.header.frame_id = frame_id
-        pose.header.stamp = stamp
-        pose.pose.position.x = x
-        pose.pose.position.y = y
-        qx, qy, qz, qw = yaw_to_quaternion(yaw)
-        pose.pose.orientation.x = qx
-        pose.pose.orientation.y = qy
-        pose.pose.orientation.z = qz
-        pose.pose.orientation.w = qw
-        path.poses.append(pose)
-    return path
-
-
 def build_markers(sampled_pts, frame_id: str, stamp):
     markers = MarkerArray()
 
@@ -123,18 +104,18 @@ class WaypointsVisualizer(Node):
         super().__init__("waypoints_visualizer")
         self.frame_id = args.frame
         self.topic = args.topic
-        self.path_topic = args.path_topic
         self.rate = args.rate
         self.step_m = args.step
         self._sampled = None
-        self._received_first = False
+        self._latest_path = None
+        self._last_processed_stamp = None
 
         self._sub = self.create_subscription(
             Path, args.waypoints_topic, self._on_waypoints, 10
         )
         self.get_logger().info(f"Waiting for /waypoints Path on: {args.waypoints_topic}")
         self.get_logger().info(f"Interpolation step: {self.step_m} m")
-        self.get_logger().info(f"Marker topic: {self.topic}, Path topic: {self.path_topic}")
+        self.get_logger().info(f"Marker topic: {self.topic}")
 
         qos = QoSProfile(
             history=QoSHistoryPolicy.KEEP_LAST,
@@ -143,46 +124,46 @@ class WaypointsVisualizer(Node):
             durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
         )
         self.marker_pub = self.create_publisher(MarkerArray, self.topic, qos)
-        self.path_pub = self.create_publisher(Path, self.path_topic, qos)
 
         self.timer = self.create_timer(1.0 / self.rate, self._on_timer)
 
     def _on_waypoints(self, msg: Path):
-        if self._received_first:
-            return
-        self._received_first = True
-        points = path_to_points(msg)
-        self._sampled = (
-            interpolate(points, self.step_m)
-            if len(points) > 1
-            else [(points[0][0], points[0][1], 0.0)]
-        )
-        if self.frame_id is None:
-            self.frame_id = msg.header.frame_id or "map"
-        self.get_logger().info(
-            f"Received /waypoints Path with {len(msg.poses)} poses; publishing markers/path."
-        )
-        if self._sub is not None:
-            self.destroy_subscription(self._sub)
-            self._sub = None
+        self._latest_path = msg
 
     def _on_timer(self):
+        if self._latest_path is not None:
+            stamp = self._latest_path.header.stamp
+            stamp_key = (stamp.sec, stamp.nanosec)
+            if self._last_processed_stamp != stamp_key:
+                points = path_to_points(self._latest_path)
+                self._sampled = (
+                    interpolate(points, self.step_m)
+                    if len(points) > 1
+                    else [(points[0][0], points[0][1], 0.0)]
+                )
+                if self.frame_id is None:
+                    self.frame_id = self._latest_path.header.frame_id or "map"
+                self._last_processed_stamp = stamp_key
+                self.get_logger().info(
+                    f"Visualizing waypoints with {len(self._latest_path.poses)} poses (stamp={stamp_key})."
+                )
+
         if self._sampled is None:
             return
         stamp = self.get_clock().now().to_msg()
         markers = build_markers(self._sampled, self.frame_id, stamp)
-        path_msg = build_path(self._sampled, self.frame_id, stamp)
         self.marker_pub.publish(markers)
-        self.path_pub.publish(path_msg)
 
 
 def main():
     import argparse
+    import sys
+    from rclpy.utilities import remove_ros_args
 
-    parser = argparse.ArgumentParser(description="Publish markers/path from /waypoints (nav_msgs/Path).")
+    parser = argparse.ArgumentParser(description="Publish markers from /waypoints (nav_msgs/Path).")
     parser.add_argument(
         "--waypoints-topic",
-        default="/waypoints",
+        default="/waypoints/raw",
         help="Path topic to subscribe (nav_msgs/Path)",
     )
     parser.add_argument(
@@ -190,8 +171,7 @@ def main():
         default=None,
         help="Override frame id for markers and path (default: use incoming frame_id or map)",
     )
-    parser.add_argument("--topic", default="/waypoints/markers", help="Marker topic")
-    parser.add_argument("--path-topic", default="/waypoints/path", help="Path topic")
+    parser.add_argument("--topic", default="/waypoints/interpolated/markers", help="Marker topic")
     parser.add_argument("--rate", type=float, default=1.0, help="Publish rate in Hz")
     parser.add_argument(
         "--step",
@@ -199,7 +179,7 @@ def main():
         default=0.2,
         help="Interpolation step in meters for received Path",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(remove_ros_args(sys.argv)[1:])
 
     rclpy.init()
     node = WaypointsVisualizer(args)
