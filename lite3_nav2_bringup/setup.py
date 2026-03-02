@@ -41,10 +41,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            # 'send_follow_path = lite3_nav2_bringup.send_follow_path:main',
             'visualize_waypoints = lite3_nav2_bringup.visualize_waypoints:main',
-            # 'send_path_topic = lite3_nav2_bringup.send_path_topic:main',
-            # 'send_path_and_nav = lite3_nav2_bringup.send_path_and_nav:main',
+            'waypoints_publisher = lite3_nav2_bringup.waypoints_publisher:main',
         ],
     },
 )

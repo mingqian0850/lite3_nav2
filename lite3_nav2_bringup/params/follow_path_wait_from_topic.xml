@@ -4,8 +4,8 @@
     <Sequence name="LoadAndFollowPath">
       <!-- Keep trying to fetch the path until available -->
       <RetryUntilSuccessful num_attempts="-1">
-        <!-- Subscribe to the continuous path published by visualize_waypoints -->
-        <PathFromTopic topic="/waypoints/path" path="{path}" />
+        <!-- Subscribe to the raw path and interpolate before FollowPath -->
+        <PathFromTopic topic="/waypoints/raw" step="0.05" path="{path}" />
       </RetryUntilSuccessful>
 
       <RecoveryNode number_of_retries="100">

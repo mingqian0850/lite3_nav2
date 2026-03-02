@@ -1,6 +1,6 @@
 controller_server:
   ros__parameters:
-    controller_frequency: 30.0
+    controller_frequency: 50.0 
     costmap_update_timeout: 1.0
     min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.001
@@ -9,8 +9,8 @@ controller_server:
     progress_checker_plugins: ["progress_checker"]
     goal_checker_plugins: ["general_goal_checker"] # "precise_goal_checker"
     controller_plugins: ["FollowPath"]
-
-
+    use_realtime_priority: false
+    speed_limit_topic: "speed_limit"
 
     # Progress checker parameters
     progress_checker:
@@ -18,31 +18,44 @@ controller_server:
       required_movement_radius: 0.5
       movement_time_allowance: 10.0
     # Goal checker parameters
+    #precise_goal_checker:
+    #  plugin: "nav2_controller::SimpleGoalChecker"
+    #  xy_goal_tolerance: 0.25
+    #  yaw_goal_tolerance: 0.25
+    #  stateful: True
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.2
+      xy_goal_tolerance: 0.1
       yaw_goal_tolerance: 0.1
-
     FollowPath:
       plugin: "nav2_mppi_controller::MPPIController"
       time_steps: 56
-      model_dt: 0.05
-      batch_size: 2000
-      vx_std: 0.2
+      model_dt: 0.02
+      batch_size: 1000
+      ax_max: 2.0
+      ax_min: -3.0
+      ay_max: 2.0
+      ay_min: -3.0
+      az_max: 2.0
+      vx_std: 1.0
       vy_std: 0.2
-      wz_std: 0.4
-      vx_max: 0.5
-      vx_min: -0.35
-      vy_max: 0.5
-      wz_max: 1.9
+      wz_std: 3.0
+      vx_max: 1.0
+      vx_min: -0.8
+      vy_max: 1.0
+      vy_min: -1.0
+      wz_max: 1.5
       iteration_count: 1
       prune_distance: 5.0
       transform_tolerance: 5.0
-      temperature: 0.3
+      temperature: 0.8 #0.3 
       gamma: 0.015
       motion_model: "Omni"
       visualize: true
+      publish_optimal_trajectory: true
+      regenerate_noises: true
+      retry_attempt_limit: 1
       TrajectoryVisualizer:
         trajectory_step: 5
         time_step: 3
@@ -50,10 +63,10 @@ controller_server:
         # The validator can be configured with additional parameters if needed.
         plugin: "mppi::DefaultOptimalTrajectoryValidator"
         collision_lookahead_time: 5.0  # Time to look ahead to check for collisions
-        consider_footprint: true  # Whether to consider the full robot's footprint (or circle) in trajectory validation collision checks  
+        consider_footprint: true  # Whether to consider the full robot's footprint (or circle) in trajectory validation collision checks
       AckermannConstraints:
         min_turning_r: 0.2
-      critics: 
+      critics:
         [
           "ConstraintCritic",
           "CostCritic",
@@ -83,20 +96,11 @@ controller_server:
         cost_power: 1
         cost_weight: 5.0
         threshold_to_consider: 0.5
-      # Option to replace Cost and use Obstacles instead
-      # ObstaclesCritic:
-      #   enabled: true
-      #   cost_power: 1
-      #   repulsion_weight: 1.5
-      #   critical_weight: 20.0
-      #   consider_footprint: false
-      #   collision_cost: 10000.0
-      #   collision_margin_distance: 0.1
-      #   near_goal_distance: 0.5
       CostCritic:
         enabled: true
         cost_power: 1
         cost_weight: 3.81
+        near_collision_cost: 253
         critical_cost: 300.0
         consider_footprint: true
         collision_cost: 1000000.0
@@ -124,12 +128,7 @@ controller_server:
         offset_from_furthest: 4
         threshold_to_consider: 0.5
         max_angle_to_furthest: 1.0
-        forward_preference: true
-      # VelocityDeadbandCritic:
-      #   enabled: true
-      #   cost_power: 1
-      #   cost_weight: 35.0
-      #   deadband_velocities: [0.05, 0.05, 0.05]
+        mode: 0
       # TwirlingCritic:
       #   enabled: true
       #   twirling_cost_power: 1
@@ -138,8 +137,8 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 2.0
+      update_frequency: 50.0
+      publish_frequency: 30.0
       global_frame: map
       robot_base_frame: base_link
       rolling_window: true
@@ -148,7 +147,7 @@ local_costmap:
       resolution: 0.05
       # robot_radius: 0.0
       footprint: "[[0.305, 0.185], [0.305, -0.185], [-0.305, -0.185], [-0.305, 0.185]]"
-      footprint_padding: 0.01
+      footprint_padding: 0.0
       plugins: ["nonpersisting_obstacle_layer", "inflation_layer"]
 
       voxel_layer:
@@ -203,7 +202,7 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 4.0
-        inflation_radius: 0.25
+        inflation_radius: 0.7
 
 bt_navigator:
   ros__parameters:
@@ -241,4 +240,4 @@ behavior_server:
     behavior_plugins: ["wait"]
     wait:
       plugin: "nav2_behaviors/Wait"
-      wait_duration: 0.1
+      wait_duration: 1.0
