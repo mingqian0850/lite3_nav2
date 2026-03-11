@@ -1,16 +1,11 @@
 # lite3_nav2
 
+For more info please refer START_UP.md
+
 ## Waypoints pipeline
 
-This stack expects a Path source and then follows it via BT:
-
-- `waypoints_publisher` loads `params/waypoints.yaml`, computes headings, and publishes `/waypoints/raw`.
-- `PathFromTopic` (BT node) subscribes `/waypoints/raw`, interpolates by `step`, and feeds `FollowPath`.
-- `visualize_waypoints` subscribes `/waypoints/raw` and publishes interpolated markers for RViz2.
-
-Example:
-
+A command in terminal to trigger the behaviour tree
 ```bash
-ros2 run lite3_nav2_bringup waypoints_publisher --topic /waypoints/raw
-ros2 run lite3_nav2_bringup visualize_waypoints --waypoints-topic /waypoints/raw --step 0.05
+ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{pose: {header: {frame_id: odom}, pose: {position: {x: 6.0, y: 0.0, z: 0.0}, orientation: {w: 1.0}}}}" --feedback
+
 ```
